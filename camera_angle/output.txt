@@ -1,0 +1,42 @@
+>> camera_angle('cse012.ptx')
+Found 4267 pixels per column
+Warning: skipped 46 points that were too close to origin
+Angle of first pixel is -1.0487 rad, -60.0839 deg
+Angle of last pixel is 1.5699 rad, 89.9469 deg
+Best fit line (least squares): y = 0.0006143x + -1.0495
+>> camera_angle('cse002.ptx')
+Found 4267 pixels per column
+Warning: skipped 19 points that were too close to origin
+Angle of first pixel is -1.0487 rad, -60.0839 deg
+Angle of last pixel is 1.5699 rad, 89.9468 deg
+Best fit line (least squares): y = 0.0006143x + -1.0495
+>> camera_angle('cse012.ptx')
+Found 4267 pixels per column
+Warning: skipped 46 points that were too close to origin
+Angle of first pixel is -1.0487 rad, -60.0839 deg
+Angle of last pixel is 1.5699 rad, 89.9469 deg
+Best fit line (least squares): y = 0.0006143x + -1.0495
+>> camera_angle('cse013.ptx')
+Found 4267 pixels per column
+Warning: skipped 397 points that were too close to origin
+Angle of first pixel is -1.0487 rad, -60.0838 deg
+Angle of last pixel is 1.5699 rad, 89.947 deg
+Best fit line (least squares): y = 0.00061429x + -1.0495
+>> camera_angle('cse020.ptx')
+Found 4267 pixels per column
+Warning: skipped 155 points that were too close to origin
+Angle of first pixel is -1.0487 rad, -60.0838 deg
+Angle of last pixel is 1.5699 rad, 89.9466 deg
+Best fit line (least squares): y = 0.00061429x + -1.0495
+>> camera_angle('cse013.ptx')
+Found 4267 pixels per column
+Warning: skipped 397 points that were too close to origin
+Angle of first pixel is -1.0487 rad, -60.0838 deg
+Angle of last pixel is 1.5699 rad, 89.947 deg
+Best fit line (least squares): y = 0.00061429x + -1.0495
+>> camera_angle('cse013.ptx', 1000)
+Found 4267 pixels per column
+Warning: skipped 214 points that were too close to origin
+Angle of first pixel is -1.0487 rad, -60.0838 deg
+Angle of last pixel is 1.5699 rad, 89.9467 deg
+Best fit line (least squares): y = 0.00061429x + -1.0495
