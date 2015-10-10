@@ -17,8 +17,8 @@ using namespace Eigen;
 
 #define THETA_MAX 2.0*M_PI
 #define THETA_MIN 0.0
-#define PHI_MAX M_PI/2.0
-#define PHI_MIN -0.866758
+#define PHI_MAX 1.57
+#define PHI_MIN -1.0487
 
 int writeImage(int width, int height, vector<unsigned char>& buf, vector<double>& xyz = vector<double>(), vector<double>& depth = vector<double>(), double minDist = 0.5, double maxDist = 5);
 int getIndex(Vector3d& point, int width, int height, vector<double>& blend, bool debug = false);
