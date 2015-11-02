@@ -19,6 +19,8 @@ using namespace Eigen;
 #define THETA_MIN 0.0
 #define PHI_MAX 1.57
 #define PHI_MIN -1.0487
+#define MAX_DIST_THRESH 10
+#define MIN_DIST_THRESH 0.5
 
 int writeImage(int width, int height, vector<unsigned char>& buf, vector<double>& xyz = vector<double>(), vector<double>& depth = vector<double>(), double minDist = 0.5, double maxDist = 5);
 int getIndex(Vector3d& point, int width, int height, vector<double>& blend, bool debug = false);
@@ -66,6 +68,7 @@ int main(int argc, char* argv[])
 
 			double zmax = -100, zmin = 100;
 		
+			// read ptx file and store data
 			for (int x = 0; x < width; ++x) {
 				cout << '\r' << x << '/'<< width;
 				for (int y = height-1; y >= 0; --y) {
@@ -88,6 +91,14 @@ int main(int argc, char* argv[])
 
 					depth[index] = dist < 1e-6 ? 0 : dist;
 
+					// record min and max distances up to a threshold to avoid using noisy distances
+					if (dist < MAX_DIST_THRESH) {
+						maxDist = max(maxDist, dist);
+					}
+					if (dist > MIN_DIST_THRESH) {
+						minDist = min(minDist, dist);
+					}
+
 					cz /= dist;
 
 					zmax = max(cz, zmax);
@@ -102,18 +113,19 @@ int main(int argc, char* argv[])
 
 			cout << endl;
 
+			// for debugging
 			cout << "zmax: " << zmax << endl << "zmin: " << zmin << endl;
 			cout << "maxdist: " << maxDist << endl << "mindist: " << minDist << endl;
 			cout << "avgdist: " << (distsum/(width*height)) << endl;
 
-			maxDist = 3;
+			ifs.close();
+			ifs.clear();
 
+			// continuously write images based on user input
 			int response = 0;
 			while(response != -1) {
-				response = writeImage(width, height, buf, xyz, depth);
+				response = writeImage(width, height, buf, xyz, depth, minDist, maxDist);
 			}
-
-			ifs.close();
 		}
 	} else if (infile.substr(infile.find_last_of('.')+1) == "png") {
 
@@ -163,6 +175,7 @@ int writeImage(int width, int height, vector<unsigned char>& buf, vector<double>
 
 	ss >> outfile >> imageWidth >> imageHeight >> theta >> phi >> fovy;
 			
+	// compute orthogonal vectors, u and v are along viewing plane
 	Vector3d w(cos(theta)*cos(phi), sin(theta)*cos(phi), sin(phi));
 	Vector3d u = w.cross(Vector3d(0, 0, 1)).normalized();
 	Vector3d v = w.cross(u).normalized();
@@ -180,24 +193,21 @@ int writeImage(int width, int height, vector<unsigned char>& buf, vector<double>
 		xyzBuf.resize(3*imageWidth*imageHeight);
 	}
 
-	vector<unsigned char> depthBuf;
+	vector<unsigned char> depthImageBuf;
 	if (depth.size() > 0) {
-		depthBuf.resize(4*imageWidth*imageHeight);
+		depthImageBuf.resize(4*imageWidth*imageHeight);
 	}
 
-	int imageIndex = 0, xyzIndex = 0;
+	// extract image data in the correct order
+	int imageIndex = 0, xyzIndex = 0, depthIndex = 0;
 	for(int y=0; y<imageHeight; ++y) {
 		for(int x=0; x<imageWidth; ++x) {
 
 			Vector3d point = origin + x * u + y * v;
 			point.normalize();
 
-			double cx, cy;
 			vector<double> blend;
 			int index = getIndex(point, width, height, blend);
-
-			double dx = cx - (int) cx;
-			double dy = cy - (int) cy;
 
 			outBuf[imageIndex] = static_cast<unsigned char>(blend[0] * buf[4*index] + blend[1] * buf[4*(index+1)] + blend[2] * buf[4*(index+width)] + blend[3] * buf[4*(index+width+1)]);
 			outBuf[imageIndex+1] = static_cast<unsigned char>(blend[0] * buf[4*index+1] + blend[1] * buf[4*(index+1)+1] + blend[2] * buf[4*(index+width)+1] + blend[3] * buf[4*(index+width+1)+1]);
@@ -211,15 +221,18 @@ int writeImage(int width, int height, vector<unsigned char>& buf, vector<double>
 			}
 
 			if (depth.size() > 0) {
-				int depthColor = (int) ((1 - min((depth[index] - minDist) / (maxDist - minDist), 1.0)) * 255);
-				depthBuf[imageIndex] = static_cast<unsigned char>(depthColor);
-				depthBuf[imageIndex+1] = 0;
-				depthBuf[imageIndex+2] = 0;
-				depthBuf[imageIndex+3] = 255;
+				double curDepth = min(max(depth[index], minDist), maxDist);
+
+				unsigned char depthColor = static_cast<unsigned char>((int) (min((curDepth - minDist) / (maxDist - minDist), 1.0) * 255));
+				depthImageBuf[imageIndex] = depthColor;
+				depthImageBuf[imageIndex+1] = depthColor;
+				depthImageBuf[imageIndex+2] = depthColor;
+				depthImageBuf[imageIndex+3] = 255;
 			}
 
 			xyzIndex += 3;
 			imageIndex += 4;
+			depthIndex += 1;
 
 		}
 	}
@@ -227,6 +240,7 @@ int writeImage(int width, int height, vector<unsigned char>& buf, vector<double>
 	vector<unsigned char> png;
 	unsigned int error = lodepng::encode(png, outBuf, imageWidth, imageHeight);
 
+	// write image file
 	if (!error) {
 		lodepng::save_file(png, outfile);
 		cout << "SUCCESS: saved image file " << outfile << endl;
@@ -235,6 +249,7 @@ int writeImage(int width, int height, vector<unsigned char>& buf, vector<double>
 		cout << "Expected " << imageWidth*imageHeight << " pixels and found " << outBuf.size()/4 << endl;
 	}
 
+	// write obj file
 	if (xyz.size() > 0) {
 		ofstream out(outfile.substr(0, outfile.length()-4) + ".obj");
 		for(int i=0; i<imageWidth*imageHeight; i++) {
@@ -243,20 +258,20 @@ int writeImage(int width, int height, vector<unsigned char>& buf, vector<double>
 		}
 
 		cout << "SUCCESS: saved obj file " << outfile.substr(0, outfile.length()-4) + ".obj" << endl;
-
 		out.close();
 	}
 
+	// write depth image
 	if (depth.size() > 0) {
 		vector<unsigned char> depthpng;
-		error = lodepng::encode(depthpng, depthBuf, imageWidth, imageHeight);
+		error = lodepng::encode(depthpng, depthImageBuf, imageWidth, imageHeight);
 
 		if (!error) {
 			lodepng::save_file(depthpng, "depth_" + outfile);
 			cout << "SUCCESS: saved depth image file depth_" << outfile << endl;
 		} else {
 			cout << "ERROR: error while encoding depth image file, this may be due to an incorrect specified number of pixels" << endl;
-			cout << "Expected " << imageWidth*imageHeight << " pixels and found " << depthBuf.size()/4 << endl;
+			cout << "Expected " << imageWidth*imageHeight << " pixels and found " << depthImageBuf.size()/4 << endl;
 		}
 	}
 
@@ -283,7 +298,7 @@ int getIndex(Vector3d& point, int width, int height, vector<double>& blend, bool
 	double dx = x - (int) x;
 	double dy = y - (int) y;
 
-	// approximate
+	// blend points together, TODO: use Gaussian pyramids
 	blend.push_back((1-dx)*(1-dy));
 	blend.push_back(dx * (1-dy));
 	blend.push_back((1-dx) * dy);
@@ -299,6 +314,7 @@ int getIndex(Vector3d& point, int width, int height, vector<double>& blend, bool
 	return index;
 }
 
+// get index from x, y coordinate of an image with specified width and height
 int getIndex(int width, int height, double x, double y) {
 	int index = ((int) x + (int) y * width) % (width * height); 
 
